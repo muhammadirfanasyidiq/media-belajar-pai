@@ -43,7 +43,7 @@ var player = GetPlayer();
 
 // ========== KONFIGURASI GOOGLE SHEETS ==========
 // WAJIB DIISI: Ganti dengan URL Web App Anda
-var GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbxvuD7zMugEDUK55-g7O8IHc7Z42W0tR6Bv1VxpG4aSiquRMq2u9fXbgPcpBemvPLfw/exec";
+var GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbxrDjkWI10PNzVCtTyttKHMUrYlmtouGZFyuDAw1gFK3qGNpWPGFCLdRnvLyIqjoEDf/exec";
 
 // Nama guru dan mata pelajaran
 var namaGuru = "Asep Maulana Yusuf, S.Pd.I";
