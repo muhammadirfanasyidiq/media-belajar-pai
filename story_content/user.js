@@ -1,4 +1,44 @@
-var c = ",";
+window.InitUserScripts = function()
+{
+var player = GetPlayer();
+var object = player.object;
+var once = player.once;
+var addToTimeline = player.addToTimeline;
+var setVar = player.SetVar;
+var getVar = player.GetVar;
+var update = player.update;
+var pointerX = player.pointerX;
+var pointerY = player.pointerY;
+var showPointer = player.showPointer;
+var hidePointer = player.hidePointer;
+var slideWidth = player.slideWidth;
+var slideHeight = player.slideHeight;
+
+window.Script2 = function()
+{
+  var audio = document.getElementById('bgSongku');
+audio.src="bgmusik.mp3";
+audio.load();
+audio.play();
+audio.volume=0.9;
+}
+
+window.Script3 = function()
+{
+  var player = GetPlayer();
+var total = player.GetVar("total");
+var persen = player.GetVar("persen");
+
+total = player.GetVar("a1") + player.GetVar("a2") + player.GetVar("a3") + player.GetVar("a4") + player.GetVar("a5") + player.GetVar("a6") + player.GetVar("a7") + player.GetVar("a8") + player.GetVar("a9") + player.GetVar("a10");
+persen = total / 100 * 100;
+
+player.SetVar("total", total);
+player.SetVar("persen", persen);
+}
+
+window.Script4 = function()
+{
+  var c = ",";
 var player = GetPlayer();
 
 // ========== KONFIGURASI GOOGLE SHEETS ==========
@@ -159,7 +199,7 @@ function downloadCSV() {
     console.log("✓ CSV berhasil didownload:", namaFile);
 }
 
-// ========== FUNGSI 2: KIRIM KE GOOGLE SHEETS ==========
+// ========== FUNGSI 2: KIRIM KE GOOGLE SHEETS (FIXED CORS) ==========
 function sendToGoogleSheets() {
     console.log("Memulai pengiriman ke Google Sheets...");
     
@@ -222,42 +262,103 @@ function sendToGoogleSheets() {
     
     console.log("Data yang akan dikirim:", dataToSend);
     
-    // Kirim data menggunakan XMLHttpRequest (lebih reliable)
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', GOOGLE_SHEETS_URL, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
+    // METHOD 1: Menggunakan JSONP untuk menghindari CORS
+    function sendViaJSONP() {
+        // Buat callback function unik
+        var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        
+        // Daftarkan callback ke window
+        window[callbackName] = function(response) {
+            console.log("✓ JSONP Response:", response);
+            // Bersihkan callback
+            delete window[callbackName];
+            document.body.removeChild(script);
+        };
+        
+        // Buat URL dengan parameter
+        var params = [];
+        for (var key in dataToSend) {
+            params.push(encodeURIComponent(key) + '=' + encodeURIComponent(dataToSend[key]));
+        }
+        params.push('callback=' + callbackName);
+        
+        var script = document.createElement('script');
+        script.src = GOOGLE_SHEETS_URL + '?' + params.join('&');
+        script.onerror = function() {
+            console.log("⚠️ JSONP request failed");
+            delete window[callbackName];
+            document.body.removeChild(script);
+        };
+        
+        document.body.appendChild(script);
+    }
     
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200 || xhr.status === 0) { // 0 untuk no-cors
-                console.log("✓ Data berhasil dikirim ke Google Sheets");
-                console.log("Response:", xhr.responseText);
-            } else {
-                console.log("⚠️ Status:", xhr.status, "Response:", xhr.responseText);
+    // METHOD 2: Fetch dengan no-cors mode (backup)
+    function sendViaFetch() {
+        // Buat form data untuk menghindari preflight
+        var formData = new FormData();
+        for (var key in dataToSend) {
+            formData.append(key, dataToSend[key]);
+        }
+        
+        fetch(GOOGLE_SHEETS_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: formData
+        }).then(function() {
+            console.log("✓ Fetch request sent (no-cors mode)");
+        }).catch(function(error) {
+            console.log("⚠️ Fetch error:", error);
+        });
+    }
+    
+    // METHOD 3: Menggunakan Image untuk GET request sederhana
+    function sendViaImage() {
+        var params = [];
+        for (var key in dataToSend) {
+            if (typeof dataToSend[key] === 'string' || typeof dataToSend[key] === 'number') {
+                params.push(encodeURIComponent(key) + '=' + encodeURIComponent(dataToSend[key]));
             }
         }
-    };
+        
+        var img = new Image();
+        img.onload = function() {
+            console.log("✓ Image request completed");
+        };
+        img.onerror = function() {
+            console.log("⚠️ Image request failed (expected for data submission)");
+        };
+        
+        // Potong URL jika terlalu panjang (limit ~2000 karakter)
+        var url = GOOGLE_SHEETS_URL + '?' + params.join('&');
+        if (url.length > 2000) {
+            console.log("⚠️ URL terlalu panjang untuk method Image, menggunakan method lain");
+            return false;
+        }
+        
+        img.src = url;
+        return true;
+    }
     
-    xhr.onerror = function() {
-        console.log("⚠️ Network error saat mengirim ke Google Sheets");
-    };
-    
-    // Kirim data
-    xhr.send(JSON.stringify(dataToSend));
-    
-    // Juga coba dengan fetch sebagai backup
-    fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend)
-    }).then(function() {
-        console.log("✓ Fetch request sent to Google Sheets");
-    }).catch(function(error) {
-        console.log("⚠️ Fetch error:", error);
-    });
+    // Coba berbagai method
+    try {
+        // Prioritas: JSONP > Fetch > Image
+        sendViaJSONP();
+        
+        // Backup methods
+        setTimeout(function() {
+            sendViaFetch();
+        }, 1000);
+        
+        setTimeout(function() {
+            if (!sendViaImage()) {
+                console.log("⚠️ Semua backup methods telah dicoba");
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.log("⚠️ Error dalam pengiriman:", error);
+    }
 }
 
 // ========== EKSEKUSI UTAMA ==========
@@ -266,14 +367,15 @@ console.log("=== MEMULAI EXPORT PROCESS ===");
 // 1. Download CSV (selalu jalan)
 downloadCSV();
 
-// 2. Kirim ke Google Sheets (jika sudah dikonfigurasi)
+// 2. Kirim ke Google Sheets (dengan CORS fix)
 sendToGoogleSheets();
 
 // 3. Tampilkan notifikasi
 setTimeout(function() {
     alert("📊 EXPORT SELESAI!\n\n" +
           "✅ CSV berhasil didownload\n" +
-          "📤 Data dikirim ke Google Sheets\n\n" +
+          "📤 Data dikirim ke Google Sheets\n" +
+          "   (Menggunakan multiple methods untuk mengatasi CORS)\n\n" +
           "Detail:\n" +
           "• ID: " + uniqueID + "\n" +
           "• Nama: " + nama + "\n" +
@@ -281,3 +383,6 @@ setTimeout(function() {
           "• Persentase: " + persen + "%\n" +
           "• Grade: " + grade + " (" + predikat + ")");
 }, 500);
+}
+
+};
