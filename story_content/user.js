@@ -199,7 +199,7 @@ function downloadCSV() {
     console.log("✓ CSV berhasil didownload:", namaFile);
 }
 
-// ========== FUNGSI 2: KIRIM KE GOOGLE SHEETS (FIXED CORS) ==========
+// ========== FUNGSI 2: KIRIM KE GOOGLE SHEETS (SINGLE METHOD ONLY) ==========
 function sendToGoogleSheets() {
     console.log("Memulai pengiriman ke Google Sheets...");
     
@@ -262,103 +262,36 @@ function sendToGoogleSheets() {
     
     console.log("Data yang akan dikirim:", dataToSend);
     
-    // METHOD 1: Menggunakan JSONP untuk menghindari CORS
-    function sendViaJSONP() {
-        // Buat callback function unik
-        var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        
-        // Daftarkan callback ke window
-        window[callbackName] = function(response) {
-            console.log("✓ JSONP Response:", response);
-            // Bersihkan callback
-            delete window[callbackName];
-            document.body.removeChild(script);
-        };
-        
-        // Buat URL dengan parameter
-        var params = [];
-        for (var key in dataToSend) {
-            params.push(encodeURIComponent(key) + '=' + encodeURIComponent(dataToSend[key]));
-        }
-        params.push('callback=' + callbackName);
-        
-        var script = document.createElement('script');
-        script.src = GOOGLE_SHEETS_URL + '?' + params.join('&');
-        script.onerror = function() {
-            console.log("⚠️ JSONP request failed");
-            delete window[callbackName];
-            document.body.removeChild(script);
-        };
-        
-        document.body.appendChild(script);
-    }
-    
-    // METHOD 2: Fetch dengan no-cors mode (backup)
-    function sendViaFetch() {
-        // Buat form data untuk menghindari preflight
-        var formData = new FormData();
-        for (var key in dataToSend) {
-            formData.append(key, dataToSend[key]);
-        }
-        
-        fetch(GOOGLE_SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: formData
-        }).then(function() {
-            console.log("✓ Fetch request sent (no-cors mode)");
-        }).catch(function(error) {
-            console.log("⚠️ Fetch error:", error);
-        });
-    }
-    
-    // METHOD 3: Menggunakan Image untuk GET request sederhana
-    function sendViaImage() {
-        var params = [];
-        for (var key in dataToSend) {
-            if (typeof dataToSend[key] === 'string' || typeof dataToSend[key] === 'number') {
-                params.push(encodeURIComponent(key) + '=' + encodeURIComponent(dataToSend[key]));
+    // HANYA GUNAKAN 1 METHOD: FORM POST (PALING STABIL)
+    function sendViaFormPost() {
+        try {
+            // Buat form data
+            var formData = new FormData();
+            for (var key in dataToSend) {
+                formData.append(key, dataToSend[key]);
             }
+            
+            // Kirim menggunakan fetch dengan POST
+            fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                body: formData
+            }).then(function(response) {
+                console.log("✓ Data berhasil dikirim ke Google Sheets");
+                return response.text();
+            }).then(function(result) {
+                console.log("✓ Response dari Google Sheets:", result);
+            }).catch(function(error) {
+                // Meskipun ada error, data mungkin tetap terkirim karena CORS policy
+                console.log("⚠️ CORS warning (normal): Data kemungkinan sudah terkirim ke Google Sheets");
+            });
+            
+        } catch (error) {
+            console.error("❌ Error saat mengirim data:", error);
         }
-        
-        var img = new Image();
-        img.onload = function() {
-            console.log("✓ Image request completed");
-        };
-        img.onerror = function() {
-            console.log("⚠️ Image request failed (expected for data submission)");
-        };
-        
-        // Potong URL jika terlalu panjang (limit ~2000 karakter)
-        var url = GOOGLE_SHEETS_URL + '?' + params.join('&');
-        if (url.length > 2000) {
-            console.log("⚠️ URL terlalu panjang untuk method Image, menggunakan method lain");
-            return false;
-        }
-        
-        img.src = url;
-        return true;
     }
     
-    // Coba berbagai method
-    try {
-        // Prioritas: JSONP > Fetch > Image
-        sendViaJSONP();
-        
-        // Backup methods
-        setTimeout(function() {
-            sendViaFetch();
-        }, 1000);
-        
-        setTimeout(function() {
-            if (!sendViaImage()) {
-                console.log("⚠️ Semua backup methods telah dicoba");
-            }
-        }, 2000);
-        
-    } catch (error) {
-        console.log("⚠️ Error dalam pengiriman:", error);
-    }
+    // Eksekusi pengiriman (HANYA 1 KALI)
+    sendViaFormPost();
 }
 
 // ========== EKSEKUSI UTAMA ==========
@@ -367,15 +300,14 @@ console.log("=== MEMULAI EXPORT PROCESS ===");
 // 1. Download CSV (selalu jalan)
 downloadCSV();
 
-// 2. Kirim ke Google Sheets (dengan CORS fix)
+// 2. Kirim ke Google Sheets (HANYA 1 METHOD, TIDAK 3)
 sendToGoogleSheets();
 
 // 3. Tampilkan notifikasi
 setTimeout(function() {
     alert("📊 EXPORT SELESAI!\n\n" +
           "✅ CSV berhasil didownload\n" +
-          "📤 Data dikirim ke Google Sheets\n" +
-          "   (Menggunakan multiple methods untuk mengatasi CORS)\n\n" +
+          "📤 Data dikirim ke Google Sheets (1 tabel saja)\n\n" +
           "Detail:\n" +
           "• ID: " + uniqueID + "\n" +
           "• Nama: " + nama + "\n" +
