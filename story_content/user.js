@@ -307,7 +307,7 @@ sendToGoogleSheets();
 setTimeout(function() {
     alert("📊 EXPORT SELESAI!\n\n" +
           "✅ CSV berhasil didownload\n" +
-          "📤 Data dikirim ke Google Sheets (1 tabel saja)\n\n" +
+          "📤 Data dikirim ke Google Sheets \n\n" +
           "Detail:\n" +
           "• ID: " + uniqueID + "\n" +
           "• Nama: " + nama + "\n" +
